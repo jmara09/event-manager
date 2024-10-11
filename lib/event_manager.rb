@@ -1,6 +1,8 @@
 require 'csv'
+require 'date'
 require 'erb'
 require 'google/apis/civicinfo_v2'
+require 'time'
 
 def clean_zipcode(zipcode)
   zipcode.to_s.rjust(5, '0')[0..4]
@@ -43,6 +45,11 @@ def save_thank_you_letter(id, form_letter)
   end
 end
 
+def most_frequent_hour(time)
+  time.map { |hour| Time.strptime(hour, '%m/%d/%Y %H:%M') { |y| y + 2000 } }
+      .map(&:hour).tally.sort_by { |_key, val| -val }
+end
+
 puts 'Event Manager Initialized!'
 
 contents = CSV.open(
@@ -54,14 +61,30 @@ contents = CSV.open(
 template_letter = File.read('form_letter.erb')
 erb_template = ERB.new template_letter
 
-contents.each do |row|
-  id = row[0]
-  name = row[:first_name]
-  zipcode = clean_zipcode(row[:zipcode])
-  legislators = legislators_by_zipcode(zipcode)
+# contents.each do |row|
+#   id = row[0]
+#   name = row[:first_name]
+#   zipcode = clean_zipcode(row[:zipcode])
+#   legislators = legislators_by_zipcode(zipcode)
 
-  # form_letter = erb_template.result(binding)
+#   # form_letter = erb_template.result(binding)
 
-  # save_thank_you_letter(id, form_letter)
-  clean_phone_number(row[:homephone])
+#   # save_thank_you_letter(id, form_letter)
+#   # clean_phone_number(row[:homephone])
+
+#   # p Time.strptime(row[:regdate], '%m/%d/%Y %H:%M')
+# end
+
+data = CSV.table(
+  'event_attendees.csv',
+  header_converters: :symbol,
+  headers: true
+)
+
+hour = most_frequent_hour(data[:regdate])
+
+puts 'This is the top 3 most frequent hours'
+
+3.times do |idx|
+  puts "At #{hour[idx][0]}H, #{hour[idx][1]} people registered"
 end
