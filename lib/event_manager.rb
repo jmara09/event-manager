@@ -25,13 +25,12 @@ end
 
 def clean_phone_number(number)
   number = number.delete('^0-9')
-  return 'Bad number' unless number.length == 10 || number.length == 11
-  return number if number.length == 10
+  return 'Incorrect phone number format.' unless number.length == 10 || number.length == 11
 
-  if number[0] == '1'
-    number[1..10]
+  if number.length == 10
+    number[0..10]
   else
-    'Bad number'
+    number[0] == '1' ? number[1..10] : 'Incorrect phone number format.'
   end
 end
 
@@ -45,9 +44,18 @@ def save_thank_you_letter(id, form_letter)
   end
 end
 
-def most_frequent_hour(time)
-  time.map { |hour| Time.strptime(hour, '%m/%d/%Y %H:%M') { |y| y + 2000 } }
-      .map(&:hour).tally.sort_by { |_key, val| -val }
+def convert_strings(array)
+  array.map { |hour| Time.strptime(hour, '%m/%d/%Y %H:%M') { |y| y + 2000 } }
+end
+
+def frequent_hours(time)
+  convert_strings(time).map(&:hour).tally.sort_by { |_key, val| -val }
+end
+
+def frequest_days(days)
+  convert_strings(days).map { |date| date.to_date.wday }
+                       .map { |day| Date::DAYNAMES[day] }.tally
+                       .sort_by { |_key, val| -val }
 end
 
 puts 'Event Manager Initialized!'
@@ -61,19 +69,17 @@ contents = CSV.open(
 template_letter = File.read('form_letter.erb')
 erb_template = ERB.new template_letter
 
-# contents.each do |row|
-#   id = row[0]
-#   name = row[:first_name]
-#   zipcode = clean_zipcode(row[:zipcode])
-#   legislators = legislators_by_zipcode(zipcode)
+contents.each do |row|
+  id = row[0]
+  name = row[:first_name]
+  zipcode = clean_zipcode(row[:zipcode])
+  legislators = legislators_by_zipcode(zipcode)
+  homephone = clean_phone_number(row[:homephone])
 
-#   # form_letter = erb_template.result(binding)
+  form_letter = erb_template.result(binding)
 
-#   # save_thank_you_letter(id, form_letter)
-#   # clean_phone_number(row[:homephone])
-
-#   # p Time.strptime(row[:regdate], '%m/%d/%Y %H:%M')
-# end
+  save_thank_you_letter(id, form_letter)
+end
 
 data = CSV.table(
   'event_attendees.csv',
@@ -81,10 +87,13 @@ data = CSV.table(
   headers: true
 )
 
-hour = most_frequent_hour(data[:regdate])
+hour = frequent_hours(data[:regdate])
+day = frequest_days(data[:regdate])
 
-puts 'This is the top 3 most frequent hours'
+hour.each do |row|
+  puts "At #{row[0]}H, #{row[1]} people registered"
+end
 
-3.times do |idx|
-  puts "At #{hour[idx][0]}H, #{hour[idx][1]} people registered"
+day.each do |row|
+  puts "On #{row[0]}, #{row[1]} people registered"
 end
